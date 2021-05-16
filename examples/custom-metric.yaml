@@ -1,0 +1,7 @@
+apiVersion: fpetkovski.io/v1alpha1
+kind: CustomMetric
+metadata:
+  name: test-metric
+spec:
+  name: test-metric
+  prometheusQuery: ""

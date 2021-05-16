@@ -1,0 +1,30 @@
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nginx
+spec:
+  minReplicas: 1
+  maxReplicas: 5
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nginx
+  metrics:
+#    - type: Object
+#      object:
+#        describedObject:
+#          apiVersion: networking.k8s.io/v1beta1
+#          kind: Ingress
+#          name: main-route
+#        metric:
+#          name: rps
+#        target:
+#          averageValue: 20
+#          type: AverageValue
+    - type: Pods
+      pods:
+        metric:
+          name: rps
+        target:
+          averageValue: 100
+          type: AverageValue
