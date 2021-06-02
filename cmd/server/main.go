@@ -2,14 +2,21 @@ package main
 
 import (
 	"context"
-	"fpetkovski/prometheus-adapter/pkg/apiserver"
-	"fpetkovski/prometheus-adapter/pkg/controllermanager"
-	"fpetkovski/prometheus-adapter/pkg/custommetrics"
-	"fpetkovski/prometheus-adapter/pkg/externalmetrics"
+	"fpetkovski/prometheus-adapter/pkg/metrics-server"
+	"fpetkovski/prometheus-adapter/pkg/controller-manager"
+	"fpetkovski/prometheus-adapter/pkg/external-metrics"
+	"io/fs"
+	"io/ioutil"
+	"net"
 	"os"
 	"sync"
 
+	"k8s.io/client-go/util/cert"
+
 	"github.com/spf13/pflag"
+
+	"github.com/prometheus/client_golang/api"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 
 	"github.com/go-logr/logr"
 
@@ -23,17 +30,22 @@ var logger logr.Logger
 func main() {
 	logger = klogr.New()
 	controllerruntime.SetLogger(logger)
+	generateSelfSignedCertificate()
 
 	cfg := config.GetConfigOrDie()
-	mgr, err := controllermanager.New(cfg)
+	mgr, err := controller_manager.New(cfg)
 	if err != nil {
 		exit(err)
 	}
 
-	var wg sync.WaitGroup
-	if err := custommetrics.RegisterController(logger.WithName("custom-metrics-controller"), mgr); err != nil {
+	prometheusAPI := makePrometheusAPI("http://prometheus-operated.openshift-monitoring:9090")
+	apiServer := metrics_server.NewMetricsAPIServer()
+	if err = external_metrics.Register(apiServer, mgr, prometheusAPI, logger.WithName("external-metrics")); err != nil {
 		exit(err)
 	}
+
+	pflag.Parse()
+	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -42,10 +54,6 @@ func main() {
 		}
 	}()
 
-	customMetricsProvider := custommetrics.NewMetricsProvider(logger.WithName("custom-metrics"), mgr.GetClient(), nil)
-	externalMetricsProvider := externalmetrics.NewMetricsProvider(logger.WithName("external-metrics"))
-	apiServer := apiserver.NewMetricsAPIServer("", customMetricsProvider, externalMetricsProvider)
-	pflag.Parse()
 	wg.Add(1)
 	go func() {
 		done := make(chan struct{})
@@ -56,6 +64,37 @@ func main() {
 	}()
 
 	wg.Wait()
+}
+
+func makePrometheusAPI(prometheusUrl string) v1.API {
+	promCfg := api.Config{
+		Address: prometheusUrl,
+	}
+	promClient, err := api.NewClient(promCfg)
+	if err != nil {
+		exit(err)
+	}
+	promApi := v1.NewAPI(promClient)
+	return promApi
+}
+
+func generateSelfSignedCertificate() {
+	crt, key, err := cert.GenerateSelfSignedCertKey(
+		"custom-metrics.custom-metrics",
+		[]net.IP{},
+		[]string{"custom-metrics.custom-metrics.svc"},
+	)
+	if err != nil {
+		exit(err)
+	}
+
+	if err := ioutil.WriteFile("/var/run/tls/tls.key", key, fs.FileMode(0644)); err != nil {
+		exit(err)
+	}
+
+	if err := ioutil.WriteFile("/var/run/tls/tls.crt", crt, fs.FileMode(0644)); err != nil {
+		exit(err)
+	}
 }
 
 func exit(err error) {

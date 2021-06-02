@@ -1,4 +1,4 @@
-package controllermanager
+package controller_manager
 
 import (
 	"fpetkovski/prometheus-adapter/pkg/apis/v1alpha1"
