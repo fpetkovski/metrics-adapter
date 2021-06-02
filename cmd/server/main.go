@@ -9,6 +9,9 @@ import (
 	"os"
 	"sync"
 
+	"github.com/prometheus/client_golang/api"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+
 	"github.com/spf13/pflag"
 
 	"github.com/go-logr/logr"
@@ -30,10 +33,16 @@ func main() {
 		exit(err)
 	}
 
-	var wg sync.WaitGroup
-	if err := custommetrics.RegisterController(logger.WithName("custom-metrics-controller"), mgr); err != nil {
+	err = externalmetrics.RegisterController(mgr)
+	if err != nil {
 		exit(err)
 	}
+	metricsLister, err := custommetrics.RegisterController(cfg, mgr, logger.WithName("custom-metrics-controller"))
+	if err != nil {
+		exit(err)
+	}
+
+	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -42,8 +51,32 @@ func main() {
 		}
 	}()
 
-	customMetricsProvider := custommetrics.NewMetricsProvider(logger.WithName("custom-metrics"), mgr.GetClient(), nil)
-	externalMetricsProvider := externalmetrics.NewMetricsProvider(logger.WithName("external-metrics"))
+	promCfg := api.Config{
+		Address: "http://prometheus-operated.openshift-monitoring:9090",
+	}
+	promClient, err := api.NewClient(promCfg)
+	if err != nil {
+		exit(err)
+	}
+
+	promApi := v1.NewAPI(promClient)
+	customMetricsProvider, err := custommetrics.NewMetricsProvider(
+		mgr.GetConfig(),
+		mgr.GetClient(),
+		promApi,
+		metricsLister,
+		logger.WithName("custom-metrics"),
+	)
+	if err != nil {
+		exit(err)
+	}
+
+	externalMetricsProvider := externalmetrics.NewMetricsProvider(
+		mgr.GetClient(),
+		promApi,
+		logger.WithName("external-metrics"),
+	)
+
 	apiServer := apiserver.NewMetricsAPIServer("", customMetricsProvider, externalMetricsProvider)
 	pflag.Parse()
 	wg.Add(1)

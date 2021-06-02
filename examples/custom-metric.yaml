@@ -3,5 +3,4 @@ kind: CustomMetric
 metadata:
   name: test-metric
 spec:
-  name: test-metric
-  prometheusQuery: ""
+  prometheusQuery: max by (pod) (container_cpu_usage_seconds_total{namespace="{{ .Namespace }}", pod="{{ .Name }}"})

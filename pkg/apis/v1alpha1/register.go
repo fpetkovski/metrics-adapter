@@ -27,6 +27,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&CustomMetric{},
 		&CustomMetricList{},
+		&ExternalMetric{},
+		&ExternalMetricList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

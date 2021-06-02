@@ -4,7 +4,6 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // CustomMetricSpec defines the desired state of CustomMetric
 type CustomMetricSpec struct {
-	Name            string `json:"name"`
 	PrometheusQuery string `json:"prometheusQuery"`
 }
 
@@ -21,7 +20,7 @@ type CustomMetric struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   CustomMetricSpec   `json:"spec,omitempty"`
+	Spec   CustomMetricSpec   `json:"spec"`
 	Status CustomMetricStatus `json:"status,omitempty"`
 }
 
@@ -32,4 +31,32 @@ type CustomMetricList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []CustomMetric `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// ExternalMetric is the Schema for the externalmetrics API
+// +k8s:openapi-gen=true
+type ExternalMetric struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   ExternalMetricSpec   `json:"spec,omitempty"`
+	Status ExternalMetricStatus `json:"status,omitempty"`
+}
+
+type ExternalMetricSpec struct {
+	PrometheusQuery string `json:"prometheusQuery"`
+}
+
+type ExternalMetricStatus struct {
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// ExternalMetricList contains a list of ExternalMetric
+type ExternalMetricList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ExternalMetric `json:"items"`
 }

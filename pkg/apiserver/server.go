@@ -34,6 +34,6 @@ func NewMetricsAPIServer(
 	server.InstallFlags()
 	server.WithCustomMetrics(customMetricsProvider)
 	server.WithExternalMetrics(externalMetricsProvider)
-	
+
 	return server
 }

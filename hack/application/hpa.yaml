@@ -10,21 +10,21 @@ spec:
     kind: Deployment
     name: nginx
   metrics:
-#    - type: Object
-#      object:
-#        describedObject:
-#          apiVersion: networking.k8s.io/v1beta1
-#          kind: Ingress
-#          name: main-route
-#        metric:
-#          name: rps
-#        target:
-#          averageValue: 20
-#          type: AverageValue
-    - type: Pods
-      pods:
+    - type: External
+      external:
         metric:
-          name: rps
+          name: test-metric
+          selector:
+            matchExpressions:
+              - operator: In
+                key: app
+                values:
+                - nginx
+                - haproxy
+              - operator: In
+                key: component
+                values:
+                - system
         target:
           averageValue: 100
           type: AverageValue
