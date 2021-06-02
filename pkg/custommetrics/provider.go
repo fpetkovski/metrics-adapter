@@ -42,7 +42,7 @@ type PromClient interface {
 }
 
 type QueryData struct {
-	Name string
+	Name      string
 	Namespace string
 }
 

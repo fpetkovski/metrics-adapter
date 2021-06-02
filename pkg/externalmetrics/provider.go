@@ -63,7 +63,7 @@ func (m metricsProvider) GetExternalMetric(namespace string, metricSelector labe
 	selectorRequirements, _ := metricSelector.Requirements()
 	selectors := make([]string, len(selectorRequirements))
 	for i, r := range selectorRequirements {
-		selectors[i] = labelSelector{r: r}.String()
+		selectors[i] = LabelSelector(r).String()
 	}
 
 	queryTpl := metric.Spec.PrometheusQuery
