@@ -14,7 +14,7 @@ import (
 type reconciler struct {
 }
 
-func RegisterController(mgr manager.Manager) error {
+func registerController(mgr manager.Manager) error {
 	ctrl, err := controller.New("custom-metrics", mgr, controller.Options{
 		Reconciler: &reconciler{},
 	})
