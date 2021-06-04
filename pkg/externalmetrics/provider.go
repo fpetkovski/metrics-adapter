@@ -2,6 +2,7 @@ package externalmetrics
 
 import (
 	"context"
+	"fmt"
 	"fpetkovski/prometheus-adapter/pkg/apis/v1alpha1"
 	"fpetkovski/prometheus-adapter/pkg/query"
 	"strings"
@@ -16,7 +17,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kubernetes-sigs/custom-metrics-apiserver/pkg/provider"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/metrics/pkg/apis/external_metrics"
 )
@@ -46,7 +46,7 @@ func NewMetricsProvider(k8sClient client.Client, promClient PromClient, logger l
 }
 
 func (m metricsProvider) GetExternalMetric(namespace string, metricSelector labels.Selector, info provider.ExternalMetricInfo) (*external_metrics.ExternalMetricValueList, error) {
-	m.logger.Info("Fetching external metrics",
+	m.logger.Info("Getting external metrics",
 		"Namespace", namespace,
 		"MetricSelector", metricSelector.String(),
 		"MetricInfo", info)
@@ -63,31 +63,71 @@ func (m metricsProvider) GetExternalMetric(namespace string, metricSelector labe
 	selectorRequirements, _ := metricSelector.Requirements()
 	selectors := make([]string, len(selectorRequirements))
 	for i, r := range selectorRequirements {
-		selectors[i] = LabelSelector(r).String()
+		selectors[i] = query.LabelSelector(r).String()
 	}
 
 	queryTpl := metric.Spec.PrometheusQuery
 	queryData := QueryData{
 		Labels: strings.Join(selectors, ", "),
 	}
-	promQuery := m.queryBuilder.BuildQuery(queryTpl, queryData)
+	promQuery, err := m.queryBuilder.BuildQuery(queryTpl, queryData)
+	if err != nil {
+		return nil, err
+	}
 	m.logger.Info("Executing prometheus query", "query", promQuery)
+	queryResult, _, err := m.promClient.Query(context.TODO(), promQuery, time.Now())
+	if err != nil {
+		m.logger.Error(err, "could not execute prometheus query", "Query", promQuery)
+		return nil, err
+	}
+	m.logger.Info("executed prometheus query", "result", queryResult)
+	metrics, err := resultToMetrics(info.Metric, queryResult)
+	if err != nil {
+		return nil, err
+	}
 
 	return &external_metrics.ExternalMetricValueList{
-		Items: []external_metrics.ExternalMetricValue{
-			{
-				MetricName:   info.Metric,
-				MetricLabels: nil,
-				Timestamp: metav1.Time{
-					Time: time.Time{},
-				},
-				WindowSeconds: nil,
-				Value: resource.Quantity{
-					Format: "",
-				},
-			},
-		},
+		Items: metrics,
 	}, nil
+}
+
+func resultToMetrics(metricName string, samples model.Value) ([]external_metrics.ExternalMetricValue, error) {
+	vector, ok := samples.(model.Vector)
+	if !ok {
+		return nil, fmt.Errorf("query result must be of type ValVector")
+	}
+
+	var metrics []external_metrics.ExternalMetricValue
+
+	if len(vector) == 0 {
+		return metrics, nil
+	}
+
+	for _, item := range vector {
+		value, err := resource.ParseQuantity(fmt.Sprintf("%f", item.Value))
+		if err != nil {
+			return nil, err
+		}
+
+		metrics = append(metrics, external_metrics.ExternalMetricValue{
+			MetricName:   metricName,
+			MetricLabels: extractLabels(item.Metric),
+			Value:        value,
+		})
+	}
+
+	return metrics, nil
+}
+
+func extractLabels(m model.Metric) map[string]string {
+	labelSet := map[model.LabelName]model.LabelValue(model.LabelSet(m))
+
+	result := make(map[string]string)
+	for k, v := range labelSet {
+		result[string(k)] = string(v)
+	}
+
+	return result
 }
 
 func (m metricsProvider) ListAllExternalMetrics() []provider.ExternalMetricInfo {

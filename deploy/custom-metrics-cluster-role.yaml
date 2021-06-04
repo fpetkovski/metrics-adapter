@@ -32,3 +32,19 @@ rules:
     - list
     - get
     - watch
+- apiGroups:
+    - networking.k8s.io
+  resources:
+    - ingresses
+  verbs:
+    - list
+    - get
+    - watch
+- apiGroups:
+    - ""
+  resources:
+    - services
+  verbs:
+    - list
+    - get
+    - watch

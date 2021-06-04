@@ -73,7 +73,10 @@ func (m metricsProvider) GetMetricByName(
 	info provider.CustomMetricInfo,
 	metricSelector labels.Selector,
 ) (*custom_metrics.MetricValue, error) {
-	m.logger.Info("Fetching metric", "ResourceName", name, "MetricInfo", info, "MetricSelector", metricSelector)
+	m.logger.Info("Fetching metric",
+		"ResourceName", name,
+		"MetricInfo", info,
+		"MetricSelector", metricSelector.String())
 
 	metricResource, err := m.getMetric(info.Metric, name.Namespace)
 	if err != nil {
@@ -92,7 +95,10 @@ func (m metricsProvider) GetMetricByName(
 		Name:      k8sResource.GetName(),
 		Namespace: k8sResource.GetNamespace(),
 	}
-	promQuery := m.queryBuilder.BuildQuery(queryTemplate, queryData)
+	promQuery, err := m.queryBuilder.BuildQuery(queryTemplate, queryData)
+	if err != nil {
+		return nil, err
+	}
 	m.logger.Info("executing prometheus query", "query", promQuery)
 	queryResult, _, err := m.promClient.Query(context.Background(), promQuery, time.Now())
 	if err != nil {
@@ -109,7 +115,7 @@ func (m metricsProvider) GetMetricByName(
 
 	m.logger.Info("query result", "Value", value)
 	if value == nil {
-		return nil, nil
+		return nil, fmt.Errorf("not found")
 	}
 
 	return &custom_metrics.MetricValue{
@@ -139,7 +145,7 @@ func (m metricsProvider) GetMetricBySelector(
 		"Namespace", namespace,
 		"ResourceSelector", selector.String(),
 		"MetricInfo", info,
-		"MetricSelector", metricSelector)
+		"MetricSelector", metricSelector.String())
 
 	var pods v1.PodList
 	err := m.k8sClient.List(context.TODO(), &pods, &client.ListOptions{

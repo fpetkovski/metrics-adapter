@@ -1,4 +1,4 @@
-package externalmetrics
+package query
 
 import (
 	"fmt"
@@ -29,12 +29,21 @@ func (l LabelSelector) String() string {
 	return ""
 }
 
-type LabelSelectorList []LabelSelector
+type LabelSelectors map[string]LabelSelector
 
-func (ls LabelSelectorList) String() string {
-	strs := make([]string, len(ls))
-	for i, l := range ls {
-		strs[i] = l.String()
+func NewLabelSelectors(requirements []labels.Requirement) LabelSelectors {
+	selectors := make(map[string]LabelSelector)
+	for _, r := range requirements {
+		selectors[r.Key()] = LabelSelector(r)
+	}
+
+	return selectors
+}
+
+func (ls LabelSelectors) String() string {
+	strs := make([]string, 0)
+	for _, l := range ls {
+		strs = append(strs, l.String())
 	}
 	return strings.Join(strs, ", ")
 }

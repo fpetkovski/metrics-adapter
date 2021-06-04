@@ -15,16 +15,8 @@ spec:
         metric:
           name: test-metric
           selector:
-            matchExpressions:
-              - operator: In
-                key: app
-                values:
-                - nginx
-                - haproxy
-              - operator: In
-                key: component
-                values:
-                - system
+            matchLabels:
+              container: nginx
         target:
-          averageValue: 100
+          averageValue: 50
           type: AverageValue

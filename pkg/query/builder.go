@@ -2,6 +2,7 @@ package query
 
 import (
 	"bytes"
+	"fmt"
 	"text/template"
 )
 
@@ -12,17 +13,17 @@ func NewQueryBuilder() *Builder {
 	return &Builder{}
 }
 
-func (b *Builder) BuildQuery(tpl string, data interface{}) string {
+func (b *Builder) BuildQuery(tpl string, data interface{}) (string, error) {
 	t := template.New("")
 	t, err := t.Parse(tpl)
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("unable to render query: %w", err)
 	}
 
 	var result bytes.Buffer
 	if err := t.Execute(&result, data); err != nil {
-		return ""
+		return "", fmt.Errorf("unable to render query: %w", err)
 	}
 
-	return result.String()
+	return result.String(), nil
 }

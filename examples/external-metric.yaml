@@ -3,4 +3,4 @@ kind: ExternalMetric
 metadata:
   name: test-metric
 spec:
-  prometheusQuery: max by (pod) (container_cpu_usage_seconds_total{ {{.Labels }} })
+  prometheusQuery: max by (pod) (container_cpu_usage_seconds_total{ {{.Labels }} }) * 100

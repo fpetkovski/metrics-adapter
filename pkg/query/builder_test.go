@@ -1,7 +1,6 @@
 package query_test
 
 import (
-	"fpetkovski/prometheus-adapter/pkg/externalmetrics"
 	"fpetkovski/prometheus-adapter/pkg/query"
 	"testing"
 
@@ -9,44 +8,66 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 )
 
-func TestBuildQuery(t *testing.T) {
-	builder := query.Builder{}
-
-	template := `cpu_usage{pod="{{ .Name }}", namespace="{{.Namespace}}", label="{{.Label}}"}`
-	queryData := struct {
-		Name      string
-		Namespace string
-		Label     string
+func TestBuildQueryS(t *testing.T) {
+	ts := []struct {
+		template      string
+		data          interface{}
+		expectedQuery string
 	}{
-		Name:      "test-pod",
-		Namespace: "test-namespace",
-		Label:     "test-label",
+		{
+			template: `cpu_usage{pod="{{ .Name }}", namespace="{{.Namespace}}"}`,
+			data: struct {
+				Name      string
+				Namespace string
+			}{
+				Name:      "test-pod",
+				Namespace: "test-namespace",
+			},
+			expectedQuery: `cpu_usage{pod="test-pod", namespace="test-namespace"}`,
+		},
+		{
+			template: `cpu_usage{ {{ .Labels }} }`,
+			data: struct {
+				Labels query.LabelSelectors
+			}{
+				Labels: makeLabelSelectors(
+					makeRequirement("app", selection.In, []string{"haproxy", "nginx"}),
+					makeRequirement("system", selection.Equals, []string{"monitoring"}),
+				),
+			},
+			expectedQuery: `cpu_usage{ app=~"^(haproxy|nginx)$", system="monitoring" }`,
+		},
+		{
+			template: `cpu_usage{ {{ index .Labels "app" }} }`,
+			data: struct {
+				Labels query.LabelSelectors
+			}{
+				Labels: makeLabelSelectors(
+					makeRequirement("app", selection.Equals, []string{"nginx"}),
+					makeRequirement("system", selection.Equals, []string{"monitoring"}),
+				),
+			},
+			expectedQuery: `cpu_usage{ app="nginx" }`,
+		},
 	}
-	result := builder.BuildQuery(template, queryData)
-	expected := `cpu_usage{pod="test-pod", namespace="test-namespace", label="test-label"}`
-	if result != expected {
-		t.Fatalf("invalid result, got %s, want %s", result, expected)
+
+	for _, tt := range ts {
+		builder := query.Builder{}
+		result, err := builder.BuildQuery(tt.template, tt.data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result != tt.expectedQuery {
+			t.Fatalf("invalid result, got %s, want %s", result, tt.expectedQuery)
+		}
 	}
 }
 
-func TestBuildQueryWithRequirement(t *testing.T) {
-	builder := query.Builder{}
+func makeLabelSelectors(requirements ...labels.Requirement) query.LabelSelectors {
+	return query.NewLabelSelectors(requirements)
+}
 
-	template := `cpu_usage{ {{ .Labels }} }`
-
-	r1, _ := labels.NewRequirement("app", selection.Equals, []string{"nginx"})
-	r2, _ := labels.NewRequirement("system", selection.Equals, []string{"monitoring"})
-	queryData := struct {
-		Labels externalmetrics.LabelSelectorList
-	}{
-		Labels: []externalmetrics.LabelSelector{
-			externalmetrics.LabelSelector(*r1),
-			externalmetrics.LabelSelector(*r2),
-		},
-	}
-	result := builder.BuildQuery(template, queryData)
-	expected := `cpu_usage{ app="nginx", system="monitoring" }`
-	if result != expected {
-		t.Fatalf("invalid result, got %s, want %s", result, expected)
-	}
+func makeRequirement(key string, op selection.Operator, vals []string) labels.Requirement {
+	r, _ := labels.NewRequirement(key, op, vals)
+	return *r
 }
