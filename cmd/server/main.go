@@ -5,6 +5,10 @@ import (
 	"fpetkovski/prometheus-adapter/pkg/apiserver"
 	"fpetkovski/prometheus-adapter/pkg/controllermanager"
 	"fpetkovski/prometheus-adapter/pkg/externalmetrics"
+	"io/fs"
+	"io/ioutil"
+	"k8s.io/client-go/util/cert"
+	"net"
 	"os"
 	"sync"
 
@@ -25,6 +29,7 @@ var logger logr.Logger
 func main() {
 	logger = klogr.New()
 	controllerruntime.SetLogger(logger)
+	generateSelfSignedCertificate()
 
 	cfg := config.GetConfigOrDie()
 	mgr, err := controllermanager.New(cfg)
@@ -70,6 +75,25 @@ func makePrometheusAPI(prometheusUrl string) v1.API {
 	}
 	promApi := v1.NewAPI(promClient)
 	return promApi
+}
+
+func generateSelfSignedCertificate() {
+	crt, key, err := cert.GenerateSelfSignedCertKey(
+		"custom-metrics.custom-metrics",
+		[]net.IP{},
+		[]string{"custom-metrics.custom-metrics.svc"},
+	)
+	if err != nil {
+		exit(err)
+	}
+
+	if err := ioutil.WriteFile("/var/run/tls/tls.key", key, fs.FileMode(0644)); err != nil {
+		exit(err)
+	}
+
+	if err := ioutil.WriteFile("/var/run/tls/tls.crt", crt, fs.FileMode(0644)); err != nil {
+		exit(err)
+	}
 }
 
 func exit(err error) {

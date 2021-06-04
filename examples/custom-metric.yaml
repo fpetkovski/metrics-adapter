@@ -1,6 +1,0 @@
-apiVersion: fpetkovski.io/v1alpha1
-kind: CustomMetric
-metadata:
-  name: test-metric
-spec:
-  prometheusQuery: max by (pod) (container_cpu_usage_seconds_total{namespace="{{ .Namespace }}", pod="{{ .Name }}"})

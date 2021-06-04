@@ -9,5 +9,5 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: prometheus
-  namespace: openshift-monitoring
+  namespace: monitoring
 

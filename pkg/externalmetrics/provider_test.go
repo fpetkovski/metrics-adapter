@@ -56,7 +56,7 @@ func (p prometheusStub) Query(ctx context.Context, query string, ts time.Time) (
 
 func TestGetExternalMetric(t *testing.T) {
 	promStub := prometheusStub{
-		query: "container_cpu_usage_seconds_total",
+		query: `container_cpu_usage_seconds_total{ app="nginx" }`,
 		value: `
 # TYPE container_cpu_usage_seconds_total counter
 container_cpu_usage_seconds_total{app="nginx"} 10.5
